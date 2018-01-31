@@ -1,0 +1,303 @@
+---
+title: "Capstone Milestone 1"
+author: "Leigh Matthews"
+date: "January 25, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##Introduction 
+
+This report is a compilation of the specified course tasks accomplished to learn about Natural Language Processing and to build the predictive text model.  Working with Swiftkey, the main goal is to build a *predictive keyboad"; to "use the knowledge you gained in data products to build a predictive text product". Based on the built model and a set of text, the next following word or phrase will be predicted. 
+
+
+The deliverables for this project include the follwing:
+.	A predictive text model to be used on real data
+.	A reproducible R markdown document describing the model building process
+.	A data product built with Shiny to demonstrate the use of your product
+
+
+####Modeling Approach
+The predictive text model can be a combination of probabilistic models (such as N-grams), and rule-based models. For various tasks of the modeling, different models will be used.
+
+There are multiple sources of variability related to determining possible next words. 
+
+The variability comes from the text context, including the following:
+1. *Language* - For this project, English is the language used. 
+
+2. *Source* - The source from where the text is derived (in this project: Twitter, Blogs, and News) can create variability. Since there is a tremendously large amount of data, the sources are combined into one corplus. 
+
+3. *Subject* - The subject of the text is ideally idenentfiable and clearly shows the text subect (high frequency words after parsing), and thus giving higher probabilities to specific words. A probabilistic model involving groups of words, usually used together in texts, could be employed.
+
+4. *Grammer* - The grammar of the language or person can be a large source of variability (consider lingos or slangs) and can be very difficult to model. N-grams will be used (where N is 3, 4 or 5).
+
+5. *Vocabulary* -  A each user's vocabularly varies in English.  This problem is similar to subject, creating ambiguity, sicnce people tend to use the same words in regards to same subjects.  Eventually, predicive keyboard could use machine learning and employ user-specific vocabularies.
+
+
+
+**********************************************************************************************************
+
+##Background Information
+
+*Natural language processing* (NLP) is a field which focuses on interactions between computers and human (natural) languages (3).  Many challenges in NLP involve natural language understanding, enabling computers to derive meaning from human or natural language input; and others involve natural language generation" (3).
+
+*Text mining* (or text analytics) is the process of deriving high-quality information from text using patterns, trends, and statistical learning. Text mining involves structuring the input text (parsing data plus derived linguistic features, and insertion into a database), deriving patterns within the structured data, and evaluation/interpretation of the output. 'High quality' refers to a combination of relevance, novelty, and interestingness. Typical text mining tasks include text categorization, text clustering, concept/entity extraction, production of taxonomies, sentiment analysis, document summarization, and entity relation modeling (5).
+
+Text analysis involves information retrieval, lexical analysis to study word frequency distributions, pattern recognition, tagging/annotation, information extraction, data mining techniques including link and association analysis, visualization, and predictive analytics (5). *The goal of text mining is to convert text into data for analysis, via application of natural language processing (NLP) and analytical methods.*
+
+
+
+### Data Description: Corpora
+
+The data for this Coursera Data Science Capstone project comes from a corpus called *HC Corpora* (www.corpora.heliohost.org). The raw data is available for download through Coursera as a zip file (1).  For each of the 4 locales (en_US, de_DE, ru_RU and fi_FI), there are blog, Twitter, and news text files. This is the training data that will form the basis for most of the capstone (1). 
+
+The corpora are collected from publicly available sources by a web crawler which filters for language.  Each entry is tagged with the date of publication, type of entry based on the website it is collected from (e.g. newspaper or personal blog), and subjects based on the entry title or keywords (2). 
+
+The corpora data is formatted as text files, which vary in size from 19.2 Mb to 301.4 Mb. Each file contains thousands of lines of text.  After the raw corpus is collected, it is parsed to remove duplicate entries and split into individual lines. (Source: Coursera About the Corpora).
+
+
+The information about comes from the website <http://www.corpora.heliohost.org/aboutcorpus.html>
+
+
+
+*****************************************************************************************
+#Project Objectives
+
+In this capstone report, the following objectives are met:
+1. Getting the Data - Download the data and successfully load it into R.
+2. Create a basic statisticaly summary about the data. 
+3. Perform Random Sampling - Use the raw data as a training set and generate a random sample.
+4. Data Cleaning and Manipulation
+5. Report any interesting findings from exploring the data. 
+
+
+*****************************************************************************************
+
+
+##Getting the Data
+
+#### Download the Data
+
+The dataset is available for download as a zip file (see References for website). Check to see if the Corpora file already exists; if not, download the file from and unzip the folder to extract the raw data into the selected working directory.
+
+```{r DownloadData, cache=TRUE, echo=FALSE}
+if (!file.exists("C:/Users/leigh/Desktop/Coursera/Data Science Certification/Course 10 - Data Science Capstone/data/Coursera-SwiftKey.zip"))
+    {temp <- tempfile() 
+     download.file(url = "https://d396qusza40orc.cloudfront.net/dsscapstone/dataset/Coursera-SwiftKey.zip", 
+                  destfile = "C:/Users/leigh/Desktop/Coursera/Data Science Certification/Course 10 - Data Science Capstone/data/Coursera-SwiftKey.zip", 
+                  quiet = FALSE,  method="auto") 
+     unzip(zipfile = "C:/Users/leigh/Desktop/Coursera/Data Science Certification/Course 10 - Data Science                              Capstone/data/Coursera-SwiftKey.zip", 
+             exdir = "C:/Users/leigh/Desktop/Coursera/Data Science Certification/Course 10 - Data Science   
+                      Capstone/data/Coursera-SwiftKey", overwrite = TRUE)
+}
+setwd("C:/Users/leigh/Desktop/Coursera/Data Science Certification/Course 10 - Data Science Capstone/data")
+```
+ 
+
+
+##Load the Raw Data Files into R. 
+Use the readlines() function to load the data into the workspace in R as follows. The suppressWarnings() function removes any unnecessary warnings while reading in the data. 
+
+```{r LoadData, cache = TRUE, message=FALSE, warnings=FALSE}
+suppressWarnings(twitter.raw <- readLines("C:/Users/leigh/Desktop/Coursera/Data Science Certification/Course 10 - Data Science Capstone/data/en_US.twitter.txt"))
+suppressWarnings(blogs.raw <- readLines("C:/Users/leigh/Desktop/Coursera/Data Science Certification/Course 10 - Data Science Capstone/data/en_US.blogs.txt"))
+suppressWarnings(news.raw <- readLines("C:/Users/leigh/Desktop/Coursera/Data Science Certification/Course 10 - Data Science Capstone/data/en_US.news.txt"))
+```
+
+
+
+*****************************************************************************************
+##Understanding and Cleaning the Data
+
+###Statistical Summary: Basic Text Data Information
+
+Large databases comprising of text in a target language are commonly used when generating language models for various purposes. To find out what the data look like, statistical summaries are performed.
+
+
+#### Basic Text Data Information: 
+
+Note that the file sizes are very large and thus computing memory needs to be considered. Begin by calculating the total number of characters per line for each raw text file using the length of the files. 
+
+```{r}
+blogs.char <- NULL; twitter.char <- NULL; news.char <- NULL
+for (i in (1:length(blogs.raw)))   { blogs.char[i] <- nchar(blogs.raw[i]) }
+for (i in (1:length(twitter.raw))) { twitter.char[i] <- nchar(twitter.raw[i]) }
+for (i in (1:length(news.raw)))    { news.char[i] <- nchar(news.raw[i]) }
+```
+
+
+
+#### Matrix of Summary Statistics
+Explore the basic summary statistics of the raw data files in the table below. 
+
+```{r}
+#Create a matrix of summary statistics
+basic.stat <-matrix(c(object.size(blogs.raw), length(blogs.raw), max(nchar(blogs.raw)), sum(blog.char),
+                      object.size(news.raw),  length(news.raw),  max(nchar(news.raw)),  sum(news.char),
+                      object.size(twitter.raw), length(twitter.raw), max(nchar(twitter.raw)),    sum(twitter.char)), nrow=3, ncol=4, byrow=TRUE)
+colnames(basic.stat) <- c("File Size", "Length", "Max Char per Line", "Total Characters")
+rownames(basic.stat) <- c("Blogs", "News", "Twitter"); basic.stat
+```
+
+####Summary of Characters per Line
+The following matrix contains the values for Tukey's five number summary and the rounded means of the number of characters per line. 
+```{r fivenumsum, warnings=FALSE}
+stat.sum <- matrix(c(fivenum(blogs.char), round(mean(blogs.char),digits = 0), fivenum(news.char), round(mean(news.char),digits = 0), fivenum(twitter.char), round(mean(twitter.char),digits = 0)), nrow=3, ncol=6, byrow=TRUE)
+colnames(stat.sum) <- c("Minimum", "25th Quantile", "Median", "75th Quantile", "Maximum", "Average") 
+rownames(stat.sum) <- c("Blogs", "News", "Twitter"); stat.sum
+```
+
+Clearly, twitter has the lowest number of characters per line, which makes sense because the number of characters per tweet is limited by the application. 
+
+This summary can be visualized with a boxplot.  Note that the outliers have been removed for this plot.
+
+```{r boxplot}
+plot.box <- par(mfrow=c(1,3), mar=c(3,3,1,1), oma=c(0,0,3,1))
+boxplot(blogs.char, outline=FALSE, boxfill="blue")
+boxplot(news.char, outline=FALSE, boxfill = "red")
+boxplot(twitter.char, outline=FALSE, boxfill = "green")
+mtext("BoxPlots for Characters per Line in Raw Data", side=3, line=1, outer=TRUE, cex=1, font=2)
+par(plot.box)
+```
+The boxplot demonstrates that all three sets of text are positively skewed when the outliers are removed.
+
+
+
+*************************************************************************************************
+
+## Create Subsets Using Random Sampling
+Since building models doesn't require use of all the given data to be accurate, we can use randomly generated samples of the text files as the training set. Here, the samples willl be 10% of the total file size.
+
+```{r sample}
+blogs.sample <- sample(blogs.raw, size = length(blogs.raw)/10)
+news.sample <- sample(news.raw, size = length(news.raw)/10)
+twitter.sample <- sample(twitter.raw, size = length(twitter.raw)/10)
+```
+
+
+### Data Summary
+
+After sampling the data to create the training set, a summary of the new data is helpful.
+
+```{r samplesummary}
+#Create a matrix of summary statistics
+summatrix <-matrix(c(object.size(blogs.sample), length(blogs.sample), max(nchar(blogs.sample)),
+object.size(news.sample), length(news.sample), max(nchar(news.sample)),
+object.size(twitter.sample), length(twitter.sample), max(nchar(twitter.sample))), 
+nrow=3, ncol=3, byrow=TRUE); 
+colnames(summatrix) <- c("FileSize", "Length", "MaxChar");  
+rownames(summatrix) <- c("Blogs", "News", "Twitter"); summatrix;
+
+#Create a Multi-panel Barplot
+plot <- par(mfrow=c(1,3), mar=c(3,3,1,1), oma=c(0,0,3,1))
+barplot(summatrix[,1], main = "File Size (Mb in Millions)", col=c("blue","red", "green"))
+barplot(summatrix[,2], main = "Number of Lines", col=c("blue","red", "green"))
+barplot(summatrix[,1], main = "Max Char Per Line", col=c("blue","red", "green"))
+mtext("BarPlot of Summary Statistics for Corpora Data", side=3, line=1, outer=TRUE, cex=1, font=2)
+par(plot)
+```
+
+It appears from the data summaries that it would be advantageous to join the data sets together, while maintaining the charateristics of each data file.
+**********************************************************************************************************
+
+##Data Cleaning and Manipulation
+
+
+Tasks to accomplish
+1.Tokenization - identifying appropriate tokens such as words, punctuation, and numbers. Writing a function that takes a file as input and returns a tokenized version of it.
+2.Profanity filtering - removing profanity and other words you do not want to predict.
+
+## Merging the Datasets into One Corpus
+
+Merging the three sample data sets into one Corpus can be accomplished using the tm() function in R. Load the tm() and other requried libraries into the workspace.  Since the data has already been randomly sampled, we can use a portion of the dataset, say 10,000 lines, to merge into the corpus.
+
+```{r merge}
+library(NLP); library(tm); library(SnowballC)
+#Merge the data
+mergedata <- paste(blogs.sample[1:10000], news.sample[1:10000], twitter.sample[1:10000])
+#Convert to a "volatile" corpus
+cleandata <- VCorpus(VectorSource(mergedata))
+```
+
+Continue to clean the data by removing unnecessary white spaces, numbers, puncuation, and stopword.  Then convert all of the text to lower case. 
+```{r cleaning}
+#Remove any whitespace
+cleandata <- tm_map(cleandata, stripWhitespace)
+#Remove any numbers or digits
+cleandata <- tm_map(cleandata, removeNumbers)
+#Remove any punctuation
+cleandata <- tm_map(cleandata, removePunctuation)
+#Remove any stop words
+cleandata <- tm_map(cleandata, removeWords, stopwords("english"))
+#Convert to lower case
+cleandata <- tm_map(cleandata, content_transformer(tolower))
+```
+
+Now, use the function stemDocument() that implements Porter's word stemming algorithm for collapsing words to a common root to aid comparison of vocabulary, i.e. removing "s", "ing", etc.
+```{r}
+cleandata <- tm_map(cleandata, stemDocument)
+```
+
+Below is a brief summary of the corpus document. 
+
+```{r}
+matrix(c("Statistic", "File Size", "Length", "Max Char per Line", "Corpus", object.size(cleandata), length(cleandata), max(nchar(cleandata))), nrow=2, ncol=, byrow=TRUE)
+```
+
+#### Remove Profanity
+
+Any profanity needs to be removed from the data.  A list of the most common profane words found (see Reference 7) . The profane words are entered as a vector.  The following code is hidden using echo=FALSE due to the profanity.
+```{r profanity, echo=FALSE}
+# Remove profanity words
+profanity_vector <- as.vector(c("shit", "fuck", "ass", "asshole", "hell", "bitch", "damn", "crap", "piss", "dick", "darn","pussy", "fag", "cock", "bastard", "slut", "douche"))
+```
+
+After entering the vector of common profanities, the words are removed from the corpus. 
+```{r}
+corpus <- tm_map(cleandata, removeWords, profanity_vector) 
+corpus <- gsub("http\\w+","", corpus)
+```
+
+####Tokenization and Transformations 
+
+**Tokenization** in NLP is identifying appropriate tokens such as words, punctuation, and numbers, writing a function that takes a file as input and returns a tokenized version of it.
+
+We will use *N-grams*, which are the combinations of 'N' number of words. 
+
+
+For example, consider the sentence "Data Science is fun". Using n-grams, we obtain the counts and combinations:
+
+**1-gram**: Count of 4; Combinations = "Data" and "Science" and "is" and "fun";
+
+**2-gram**: Count of 3; Combinations = i.e. "Dat Science", "Science is" and "is fun";
+
+**3-gram**: Count of 2; Combinations =  "Data Science is" and "Science is fun";
+
+**4-gram**: Count of 1; Combinations = "Data Science is fun".
+
+For this project, I will use 1-grams to 5-grams to build combinations. Higher order n-grams or more complex algorithms (such as neural networks) could be used with a higher likelihood of success, however, that is not the goal of this course. 
+
+    
+    
+## REFERENCES
+
+
+#References Used and Research  
+(1). Dataset <https://d396qusza40orc.cloudfront.net/dsscapstone/dataset/Coursera-SwiftKey.zip>
+(2)  Readme file for corpora available <http://www.corpora.heliohost.org/aboutcorpus.html>.
+(3). Natural Language Processing Wikipedia <https://en.wikipedia.org/wiki/Natural_language_processing>
+(4). CRAN Task View: Natural Language Processing <https://cran.r-project.org/web/views/NaturalLanguageProcessing.html>
+(5). Text Mining <https://en.wikipedia.org/wiki/Text_mining>
+<https://insidebigdata.com/2017/07/10/five-steps-tackling-big-data-natural-language-processing/>
+(6). Nelson, Paul. "Five Steps to Tackling Big Data with Natural Language Processing." Inside Big Data, 10 July 2017, <insidebigdata.com/2017/07/10/five-steps-tackling-big-data-natural-language-processing/>. Accessed 17 Jan. 2018. 
+(7). Kirk, Chris. "The Most Popular Swear Words on Facebook." Lexicon Valley, 11 Sept. 2013, <www.slate.com/blogs/lexicon_valley/2013/09/11/top_swear_words_most_popular_curse_words_on_facebook.html>. Accessed 24 Jan.2018.    
+(8). R Core Team (2014). R: A language and environment for statistical computing. R Foundation for Statistical Computing, Vienna, Austria. URL <http://www.R-project.org/>.
+(9). Ingo Feinerer and Kurt Hornik (2014). tm: Text Mining Package. R package version 0.6. <http://CRAN.R-project.org/package=tm>
+(10). Ingo Feinerer, Kurt Hornik, and David Meyer (2008). Text Mining Infrastructure in R. Journal of Statistical Software 25(5): 1-54. URL: <http://www.jstatsoft.org/v25/i05/>.
+
+(11). NOTES FROM STANFORD https://web.stanford.edu/~jurafsky/NLPCourseraSlides.html
+
+
