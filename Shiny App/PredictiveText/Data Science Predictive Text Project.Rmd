@@ -1,0 +1,455 @@
+---
+title: "Data Science Predictive Text"
+author: "Leigh Matthews"
+date: "February 2, 2018"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##Introduction 
+
+This report is a compilation of the specified course tasks accomplished to learn about Natural Language Processing and to build the predictive text model.  Working with Swiftkey, the main goal is to build a *predictive keyboad"; to "use the knowledge you gained in data products to build a predictive text product". Based on the built model and a set of text, the next following word or phrase will be predicted. 
+
+
+The deliverables for this project include the follwing:
+.	A predictive text model to be used on real data
+.	A reproducible R markdown document describing the model building process
+.	A data product built with Shiny to demonstrate the use of your product
+
+
+####Modeling Approach
+The predictive text model can be a combination of probabilistic models (such as N-grams), and rule-based models. For various tasks of the modeling, different models will be used.
+
+There are multiple sources of variability related to determining possible next words. 
+
+The variability comes from the text context, including the following:
+1. *Language* - For this project, English is the language used. 
+
+2. *Source* - The source from where the text is derived (in this project: Twitter, Blogs, and News) can create variability. Since there is a tremendously large amount of data, the sources are combined into one corplus. 
+
+3. *Subject* - The subject of the text is ideally idenentfiable and clearly shows the text subect (high frequency words after parsing), and thus giving higher probabilities to specific words. A probabilistic model involving groups of words, usually used together in texts, could be employed.
+
+4. *Grammer* - The grammar of the language or person can be a large source of variability (consider lingos or slangs) and can be very difficult to model. N-grams will be used (where N is 3, 4 or 5).
+
+5. *Vocabulary* -  A each user's vocabularly varies in English.  This problem is similar to subject, creating ambiguity, sicnce people tend to use the same words in regards to same subjects.  Eventually, predicive keyboard could use machine learning and employ user-specific vocabularies.
+
+
+
+**********************************************************************************************************
+
+##Background Information
+
+*Natural language processing* (NLP) is a field which focuses on interactions between computers and human (natural) languages (3).  Many challenges in NLP involve natural language understanding, enabling computers to derive meaning from human or natural language input; and others involve natural language generation" (3).
+
+*Text mining* (or text analytics) is the process of deriving high-quality information from text using patterns, trends, and statistical learning. Text mining involves structuring the input text (parsing data plus derived linguistic features, and insertion into a database), deriving patterns within the structured data, and evaluation/interpretation of the output. 'High quality' refers to a combination of relevance, novelty, and interestingness. Typical text mining tasks include text categorization, text clustering, concept/entity extraction, production of taxonomies, sentiment analysis, document summarization, and entity relation modeling (5).
+
+Text analysis involves information retrieval, lexical analysis to study word frequency distributions, pattern recognition, tagging/annotation, information extraction, data mining techniques including link and association analysis, visualization, and predictive analytics (5). *The goal of text mining is to convert text into data for analysis, via application of natural language processing (NLP) and analytical methods.*
+
+
+
+### Data Description: Corpora
+
+The data for this Coursera Data Science Capstone project comes from a corpus called *HC Corpora* (www.corpora.heliohost.org). The raw data is available for download through Coursera as a zip file (1).  For each of the 4 locales (en_US, de_DE, ru_RU and fi_FI), there are blog, Twitter, and news text files. This is the training data that will form the basis for most of the capstone (1). 
+
+The corpora are collected from publicly available sources by a web crawler which filters for language.  Each entry is tagged with the date of publication, type of entry based on the website it is collected from (e.g. newspaper or personal blog), and subjects based on the entry title or keywords (2). 
+
+The corpora data is formatted as text files, which vary in size from 19.2 Mb to 301.4 Mb. Each file contains thousands of lines of text.  After the raw corpus is collected, it is parsed to remove duplicate entries and split into individual lines. (Source: Coursera About the Corpora).
+
+
+The information about comes from the website <http://www.corpora.heliohost.org/aboutcorpus.html>
+
+
+
+*****************************************************************************************
+#Project Objectives
+
+In this capstone report, the following objectives are met:
+1. Getting the Data - Download the data and successfully load it into R.
+2. Create a basic statisticaly summary about the data. 
+3. Perform Random Sampling - Use the raw data as a training set and generate a random sample.
+4. Data Cleaning and Manipulation
+5. Report any interesting findings from exploring the data. 
+
+
+*****************************************************************************************
+
+
+##Getting the Data
+
+#### Download the Data
+
+The dataset is available for download as a zip file (see References for website). Check to see if the Corpora file already exists; if not, download the file from and unzip the folder to extract the raw data into the selected working directory.
+
+```{r DownloadData, cache=TRUE, echo=FALSE}
+if (!file.exists("C:/Users/leigh/OneDrive/Documents/GitHub/Predictive Text/data/Coursera-SwiftKey.zip"))
+    {temp <- tempfile() 
+     download.file(url = "https://d396qusza40orc.cloudfront.net/dsscapstone/dataset/Coursera-SwiftKey.zip", 
+                  destfile = "C:/Users/leigh/OneDrive/Documents/GitHub/Predictive Text/data/Coursera-SwiftKey.zip", 
+                  quiet = FALSE,  method="auto") 
+     unzip(zipfile = "C:/Users/leigh/OneDrive/Documents/GitHub/Predictive Text/data/Coursera-SwiftKey.zip", 
+             exdir = "C:/Users/leigh/OneDrive/Documents/GitHub/Predictive Text/data/Coursera-SwiftKey", overwrite = TRUE)
+}
+setwd("C:/Users/leigh/OneDrive/Documents/GitHub/Predictive Text/data")
+```
+ 
+
+
+##Load the Raw Data Files into R. 
+Use the readlines() function to load the data into the workspace in R as follows. The suppressWarnings() function removes any unnecessary warnings while reading in the data. We want the encoding to be UTF-8 so we don't get any strange characters which could cause issues later.  Start by loading lirbaries.
+
+```{r loadlibrary}
+
+library(NLP); library(tm); library(SnowballC); library(dplyr); library("wordcloud")
+
+```
+
+
+```{r LoadData, cache = TRUE, message=FALSE, warnings=FALSE}
+
+setwd("C:/Users/leigh/OneDrive/Documents/GitHub/Predictive Text/data/Coursera-SwiftKey/final/en_US")
+blogs.raw <- readLines(connect1 <- file("en_US.blogs.txt"), encoding = "UTF-8", skipNul = TRUE, warn = FALSE)
+news.raw <- readLines(connect2 <- file("en_US.news.txt"), encoding = "UTF-8", skipNul = TRUE, warn = FALSE)
+twitter.raw <- readLines(connect3 <- file("en_US.twitter.txt"), encoding = "UTF-8", skipNul = TRUE, warn = FALSE)
+close(connect1); close(connect2); close(connect3)
+
+
+#suppressWarnings(twitter.raw <- readLines("C:/Users/leigh/OneDrive/Documents/GitHub/Predictive Text/data/Coursera-SwiftKey/final/en_US/en_US.twitter.txt", encoding="UTF-8"))
+#suppressWarnings(blogs.raw <- readLines("C:/Users/leigh/OneDrive/Documents/GitHub/Predictive Text/data/Coursera-SwiftKey/final/en_US/en_US.blogs.txt", encoding="UTF-8"))
+#suppressWarnings(news.raw <- readLines("C:/Users/leigh/OneDrive/Documents/GitHub/Predictive Text/data/Coursera-SwiftKey/final/en_US/en_US.news.txt", encoding="UTF-8"))
+```
+
+
+
+
+*****************************************************************************************
+##Understanding and Cleaning the Data
+
+After loading the data into the R environment, the first step in an analysis is to get a basic understanding of the data and then to clean it into a *tidy* dataset fo computations. 
+
+###Statistical Summary: Basic Text Data Information
+
+Large databases comprising of text in a target language are commonly used when generating language models for various purposes. To find out what the data look like, statistical summaries are performed.
+
+
+#### Basic Text Data Information: 
+
+Note that the file sizes are very large and thus computing memory needs to be considered. Begin by calculating the total number of characters per line for each raw text file using the length of the files. 
+
+```{r charperline}
+blogs.char <- NULL; twitter.char <- NULL; news.char <- NULL
+for (i in (1:length(blogs.raw)))   { blogs.char[i] <- nchar(blogs.raw[i]) }
+for (i in (1:length(twitter.raw))) { twitter.char[i] <- nchar(twitter.raw[i]) }
+for (i in (1:length(news.raw)))    { news.char[i] <- nchar(news.raw[i]) }
+```
+
+
+
+#### Matrix of Summary Statistics
+Explore the basic summary statistics of the raw data files in the table below. 
+
+```{r summarycharperline}
+#Create a matrix of summary statistics
+basic.stat <-matrix(c(object.size(blogs.raw), length(blogs.raw), max(nchar(blogs.raw)), sum(blogs.char),
+                      object.size(news.raw),  length(news.raw),  max(nchar(news.raw)),  sum(news.char),
+                      object.size(twitter.raw), length(twitter.raw), max(nchar(twitter.raw)),    sum(twitter.char)), nrow=3, ncol=4, byrow=TRUE)
+colnames(basic.stat) <- c("File Size", "Length", "Max Char per Line", "Total Characters")
+rownames(basic.stat) <- c("Blogs", "News", "Twitter"); basic.stat
+```
+
+####Summary of Characters per Line
+The following matrix contains the values for Tukey's five number summary and the rounded means of the number of characters per line. 
+```{r fivenumsum, warnings=FALSE}
+stat.sum <- matrix(c(fivenum(blogs.char), round(mean(blogs.char),digits = 0), fivenum(news.char), round(mean(news.char),digits = 0), fivenum(twitter.char), round(mean(twitter.char),digits = 0)), nrow=3, ncol=6, byrow=TRUE)
+colnames(stat.sum) <- c("Minimum", "25th Quantile", "Median", "75th Quantile", "Maximum", "Average") 
+rownames(stat.sum) <- c("Blogs", "News", "Twitter"); stat.sum
+```
+
+Clearly, twitter has the lowest number of characters per line, which makes sense because the number of characters per tweet is limited by the application. 
+
+This summary can be visualized with a boxplot.  Note that the outliers have been removed for this plot.
+
+```{r boxplot}
+plot.box <- par(mfrow=c(1,3), mar=c(3,3,1,1), oma=c(0,0,3,1))
+boxplot(blogs.char, outline=FALSE, boxfill="blue")
+boxplot(news.char, outline=FALSE, boxfill = "red")
+boxplot(twitter.char, outline=FALSE, boxfill = "green")
+mtext("BoxPlots for Characters per Line in Raw Data", side=3, line=1, outer=TRUE, cex=1, font=2)
+par(plot.box)
+```
+The boxplot demonstrates that all three sets of text are positively skewed when the outliers are removed.
+
+
+
+*************************************************************************************************
+
+## Create Subsets Using Random Sampling
+Since building models doesn't require use of all the given data to be accurate, we can use randomly generated samples of the text files as the training set. Here, the samples willl be 10% of the total file size.
+
+```{r sample}
+blogs.sample <- sample(blogs.raw, size = length(blogs.raw)/10)
+news.sample <- sample(news.raw, size = length(news.raw)/10)
+twitter.sample <- sample(twitter.raw, size = length(twitter.raw)/10)
+```
+
+
+### Data Summary
+
+After sampling the data to create the training set, a summary of the new data is helpful.
+
+```{r samplesummary}
+#Create a matrix of summary statistics
+summatrix <-matrix(c(object.size(blogs.sample), length(blogs.sample), max(nchar(blogs.sample)),
+object.size(news.sample), length(news.sample), max(nchar(news.sample)),
+object.size(twitter.sample), length(twitter.sample), max(nchar(twitter.sample))), 
+nrow=3, ncol=3, byrow=TRUE); 
+colnames(summatrix) <- c("FileSize", "Length", "MaxChar");  
+rownames(summatrix) <- c("Blogs", "News", "Twitter"); summatrix;
+
+#Create a Multi-panel Barplot
+plot <- par(mfrow=c(1,3), mar=c(3,3,1,1), oma=c(0,0,3,1))
+barplot(summatrix[,1], main = "File Size (Mb in Millions)", col=c("blue","red", "green"))
+barplot(summatrix[,2], main = "Number of Lines", col=c("blue","red", "green"))
+barplot(summatrix[,1], main = "Max Char Per Line", col=c("blue","red", "green"))
+mtext("BarPlot of Summary Statistics for Corpora Data", side=3, line=1, outer=TRUE, cex=1, font=2)
+par(plot)
+```
+
+It appears from the data summaries that it would be advantageous to join the data sets together, while maintaining the charateristics of each data file.
+**********************************************************************************************************
+
+##Data Cleaning and Manipulation
+
+
+Tasks to accomplish
+1.Tokenization - identifying appropriate tokens such as words, punctuation, and numbers. Writing a function that takes a file as input and returns a tokenized version of it.
+2.Profanity filtering - removing profanity and other words you do not want to predict.
+
+## Merging the Datasets into One Corpus
+
+Merging the three sample data sets into one Corpus can be accomplished using the tm() function in R. Load the tm() and other requried libraries into the workspace.  Since the data has already been randomly sampled, we can use a portion of the dataset, say 10,000 lines, to merge into the corpus.
+
+
+####Tokenization 
+
+**Tokenization** in NLP is identifying appropriate tokens such as words, punctuation, and numbers, writing a function that takes a file as input and returns a tokenized version of it.
+
+
+```{r merge}
+
+#Merge the data
+merge.data <- paste(blogs.sample[1:10000], news.sample[1:10000], twitter.sample[1:10000])
+
+mergedata<- iconv(merge.data, 'UTF-8', 'ASCII', "byte")
+
+```
+
+Continue to clean the data by removing unnecessary white spaces, numbers, puncuation, and stopword.  Then convert all of the text to lower case. 
+```{r cleaning, warning=FALSE}
+#Convert to a "volatile" corpus
+cleandata <- VCorpus(VectorSource(mergedata))
+#Remove any whitespace
+cleandata <- tm_map(cleandata, stripWhitespace)
+#Remove any numbers or digits
+cleandata <- tm_map(cleandata, removeNumbers)
+#Remove any punctuation
+cleandata <- tm_map(cleandata, removePunctuation)
+#Remove any stop words
+cleandata <- tm_map(cleandata, removeWords, stopwords("english"))
+#Convert to lower case
+cleandata <-tm_map(cleandata, tolower)
+```
+
+#### Remove Profanity
+
+Any profanity needs to be removed from the data.  A list of the most common profane words found (see Reference 7) . The profane words are entered as a vector.  The following code is hidden using echo=FALSE due to the profanity.
+```{r profanity, echo=FALSE}
+# Remove profanity words
+profanity_vector <- as.vector(c("shit", "fuck", "ass", "asshole", "hell", "bitch", "damn", "crap", "piss", "dick", "darn","pussy", "fag", "cock", "bastard", "slut", "douche"))
+```
+
+After entering the vector of common profanities, the words are removed from the corpus. I am also removing miscellaneous characters I found in the data.
+```{r removeprofanity}
+corpus <- tm_map(cleandata, removeWords, profanity_vector) 
+corpus <- gsub("http\\w+","", corpus)
+corpus <- gsub("\\â???T","", corpus)
+corpus <- gsub("i i", "i", corpus)
+corpus <- gsub("i m","i am", corpus)
+corpus <- gsub("it s","its", corpus)
+corpus <- gsub("you re","youre", corpus)
+corpus <- gsub("i ll","ill", corpus)
+```
+
+####Stemming
+Now, use the function stemDocument() that implements Porter's word stemming algorithm for collapsing words to a common root to aid comparison of vocabulary, i.e. removing "s", "ing", etc.  
+```{r stemming}
+corpus<- VCorpus(VectorSource(corpus))
+corpus <- tm_map(corpus, stemDocument)
+
+```
+
+
+
+##Building N-Grams
+
+
+We will use *N-grams*, which are the combinations of 'N' number of words that appear in a sentence or, in this project, on the same line in the data. 
+Note that as the number of words (N) increases, there are less combinations of the words available.
+
+For example, consider the sentence "Data Science is fun". Using n-grams, we obtain the counts and combinations:
+
+**1-gram**: Count of 4; Combinations = "Data" and "Science" and "is" and "fun";
+
+**2-gram**: Count of 3; Combinations = i.e. "Dat Science", "Science is" and "is fun";
+
+**3-gram**: Count of 2; Combinations =  "Data Science is" and "Science is fun";
+
+**4-gram**: Count of 1; Combinations = "Data Science is fun".
+
+For this project, I will use 1-grams through 5-grams to build combinations. Higher order n-grams or more complex algorithms (such as neural networks) could be used with a higher likelihood of success, however, that is not the goal of this course. 
+
+
+********************************************************************************************************
+##Exploratory Analysis
+
+The first step in building a predictive model for text is understanding the distribution and relationship between the words, tokens, and phrases in the text. The goal of this task is to understand the basic relationships you observe in the data and prepare to build your first linguistic models.
+
+Tasks to accomplish
+1.Exploratory analysis - perform a thorough exploratory analysis of the data, understanding the distribution of words and relationship between the words in the corpora. 
+2.Understand frequencies of words and word pairs - build figures and tables to understand variation in the frequencies of words and word pairs in the data.
+
+
+#### Word Frequencies
+Load the RWeka library, then use n-grams to look at word frequencies.  We will begin with single words (n=1). Below is a list of the top 30 words that occur the corpus text. 
+
+```{r}
+#library(Rserve); Rserve();
+library(RWeka); library(tm)
+corpus <- Corpus(VectorSource(corpus))
+cleaner <- list(tolower, removePunctuation, removeNumbers, stripWhitespace) #Ensuring tidy data
+a <- tm_map(corpus, FUN = tm_reduce, tmFuns = cleaner)
+b <- as.matrix(TermDocumentMatrix(a, control = list(wordLengths = c(3,10))))
+word.count <- sort(rowSums(b), decreasing=TRUE)
+head(word.count, 30)
+
+barplot(word.count[1:7], col="blue", main = "Words Occuring Most Frequently in Corpus Sample")
+```
+
+####N-Grams
+
+Begin with a function to find 2-grams and output a list of 2-grams that occur more than 200 times in the sampled corpus.
+
+```{r}
+unigramTokenizer <- function(x) {NGramTokenizer(x, Weka_control(min = 1, max = 1))}
+unigrams <- DocumentTermMatrix(corpus, control = list(tokenize = unigramTokenizer))
+
+BigramTokenizer <- function(x) {NGramTokenizer(x, Weka_control(min = 2, max = 2))}
+bigrams <- DocumentTermMatrix(corpus, control = list(tokenize = BigramTokenizer))
+
+TrigramTokenizer <- function(x) {NGramTokenizer(x, Weka_control(min = 3, max = 3)) }
+trigrams <- DocumentTermMatrix(corpus, control = list(tokenize = TrigramTokenizer)) 
+
+FourgramTokenizer <- function(x) {NGramTokenizer(x, Weka_control(min = 4, max = 4)) }
+fourgrams <- DocumentTermMatrix(corpus, control = list(tokenize = FourgramTokenizer)) 
+
+```
+
+### 1-Grams
+
+Build the 1-gram of words and look at the word frequencies.
+```{r}
+unigrams_frequency <- sort(colSums(as.matrix(unigrams)),decreasing = TRUE)
+unigrams_freq_df <- data.frame(word = names(unigrams_frequency), frequency = unigrams_frequency)
+head(unigrams_freq_df, 10)
+```
+Now view the plot for unigram frequency using a Word Cloud for the top 100 words with the highest frequency.
+```{r}
+wordcloud(words = unigrams_freq_df$word, freq = unigrams_freq_df$frequency, min.freq = 100)
+#unigram wordcloud
+order.unigram<- unigrams_freq_df[order(unigrams_freq_df$frequency, decreasing = TRUE), ]
+high.uni <- order.unigram[1:100,]
+UnigramWordCloud <- wordcloud(words=high.uni$word, freq=high.uni$frequency); UnigramWordCloud
+
+#Save the plot
+#setwd("C:/Users/leigh/OneDrive/Documents/GitHub/Predictive Text/Predictive Text Presentation-figure")
+getwd()
+
+png(filename="UnigramWordCloud.png")
+plot(UnigramWordCloud)
+dev.off()
+setwd("C:/Users/leigh/OneDrive/Documents/GitHub/Predictive Text")
+```
+
+### 2-Grams
+
+Build the 2-gram of words in the Corpus and look at the phrase frequencies.
+```{r}
+bigrams_frequency <- sort(colSums(as.matrix(bigrams)),decreasing = TRUE)
+bigrams_freq_df <- data.frame(word = names(bigrams_frequency), frequency = bigrams_frequency)
+head(bigrams_freq_df, 10)
+```
+
+Now view the plot for bigram frequency using a Word Cloud for the top 100 words with the highest frequency.
+```{r}
+wordcloud(words = bigrams_freq_df$word, freq = bigrams_freq_df$frequency, min.freq = 100)
+#unigram wordcloud
+order.bigram<- bigrams_freq_df[order(bigrams_freq_df$frequency, decreasing = TRUE), ]
+high.bi <- order.bigram[1:25,]
+wordcloud(words=high.bi$word, freq=high.bi$frequency)
+```
+### 3-Grams
+
+Build the 3-gram of words in the Corpus and look at the phrase frequencies.
+```{r}
+trigrams_frequency <- sort(colSums(as.matrix(trigrams)),decreasing = TRUE)
+trigrams_freq_df <- data.frame(word = names(trigrams_frequency), frequency = trigrams_frequency)
+head(trigrams_freq_df, 10)
+```
+
+
+
+### 4-Grams
+
+Build the 4-gram of words in the Corpus and look at the phrase frequencies.
+```{r}
+fourgrams_frequency <- sort(colSums(as.matrix(fourgrams)),decreasing = TRUE)
+fourgrams_freq_df <- data.frame(word = names(fourgrams_frequency), frequency = fourgrams_frequency)
+head(fourgrams_freq_df, 10)
+
+
+```
+
+
+
+
+
+
+
+
+
+*****************************************************************************************
+
+
+    
+    
+## REFERENCES
+
+
+References Used for coding and and research:
+(1). Dataset <https://d396qusza40orc.cloudfront.net/dsscapstone/dataset/Coursera-SwiftKey.zip>
+(2)  Readme file for corpora available <http://www.corpora.heliohost.org/aboutcorpus.html>.
+(3). Natural Language Processing Wikipedia <https://en.wikipedia.org/wiki/Natural_language_processing>
+(4). CRAN Task View: Natural Language Processing <https://cran.r-project.org/web/views/NaturalLanguageProcessing.html>
+(5). Text Mining <https://en.wikipedia.org/wiki/Text_mining>
+<https://insidebigdata.com/2017/07/10/five-steps-tackling-big-data-natural-language-processing/>
+(6). Nelson, Paul. "Five Steps to Tackling Big Data with Natural Language Processing." Inside Big Data, 10 July 2017, <insidebigdata.com/2017/07/10/five-steps-tackling-big-data-natural-language-processing/>. Accessed 17 Jan. 2018. 
+(7). Kirk, Chris. "The Most Popular Swear Words on Facebook." Lexicon Valley, 11 Sept. 2013, <www.slate.com/blogs/lexicon_valley/2013/09/11/top_swear_words_most_popular_curse_words_on_facebook.html>. Accessed 24 Jan.2018.    
+(8). R Core Team (2014). R: A language and environment for statistical computing. R Foundation for Statistical Computing, Vienna, Austria. URL <http://www.R-project.org/>.
+(9). Ingo Feinerer and Kurt Hornik (2014). tm: Text Mining Package. R package version 0.6. <http://CRAN.R-project.org/package=tm>
+(10). Ingo Feinerer, Kurt Hornik, and David Meyer (2008). Text Mining Infrastructure in R. Journal of Statistical Software 25(5): 1-54. URL: <http://www.jstatsoft.org/v25/i05/>.
+
+(11). NOTES FROM STANFORD https://web.stanford.edu/~jurafsky/NLPCourseraSlides.html
+
